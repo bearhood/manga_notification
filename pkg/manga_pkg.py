@@ -67,7 +67,7 @@ class web_scracher():
         req = urllib.request.Request( self._web,
                                       headers = url_headers )
         html_page = urllib.request.urlopen( req ,timeout = 5)
-        self._soup = BeautifulSoup(html_page)
+        self._soup = BeautifulSoup(html_page,'html.parser')
     def check_if_updated(self):
         if( self._current_value != self._preval):
             return 1
@@ -132,7 +132,6 @@ class web_scracher_www_manhuaren_com(web_scracher):
         self._title = title
 def check_manga_state( web,preval ):
 
-
     net_dict = {'tw.manhuagui.com':web_scracher_tw_manhuagui_com,
                 'm.manhuagui.com':web_scracher_m_manhuagui_com,
                 'www.manhuaren.com':web_scracher_www_manhuaren_com}
@@ -154,4 +153,3 @@ def check_manga_state( web,preval ):
             return output_class
     else:
         return manga_failed(web,'Null',preval,preval)
-    return manga_failed(web,'Null',preval,preval)
