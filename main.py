@@ -87,7 +87,7 @@ def _deal_with_text(update_list = [manga_updated]):
         text = text + '[{}]({})'.format(i._title,i._web) +'\n從{}\n到{}\n'.format(i._words[0],i._words[1])
     return text
     pass
-@tasks.loop(minutes=70)
+@tasks.loop(minutes=60)
 async def threading_manga_state():
     global manga_state
     with  open('./pkg/manga_state.json','r',encoding="utf-8") as manga_state_file:
@@ -103,7 +103,7 @@ async def threading_manga_state():
         for web in manga_state[user_id]['manga'].keys():
             
             try:
-                time.sleep(randint(3,8))
+                await asyncio.sleep(randint(3,8))
                 current_value = manga_state[user_id]['manga'][web]['dep']
                 manga_class= check_manga_state(web,current_value)
             except:
@@ -134,4 +134,4 @@ async def threading_manga_state():
 async def on_ready():
     print('on ready')
     threading_manga_state.start()
-client.run("MTE3MDIyMjExODQ1NDE4NjAzNA.Gn90Ot.MlSd4-fvAgUb0oODdVemNgV_jIBuHivwrv6eNY")
+client.run("MTE3MDIyMjExODQ1NDE4NjAzNA.G6v_XE.k75a510xOz77rpOoeH1HUGhsCaCXzW1mxKsODQ")
