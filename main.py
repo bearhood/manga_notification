@@ -144,4 +144,4 @@ async def threading_soup_sending():
 async def on_ready():
     print('on ready')
     threading_manga_state.start()
-client.run("MTE3MDIyMjExODQ1NDE4NjAzNA.G4x4OX.0CgUiD1-f41FsACdoBVrhvc-6kHSlxlE03B7qs")
+client.run("")
