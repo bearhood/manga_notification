@@ -10,9 +10,12 @@ import json
 import copy
 from random import randint
 from pkg.manga_pkg import *
+from pkg.state_relate.state_model import * 
+
 intents = discord.Intents.all()
 intents.message_content = True
-client = discord.Client(intents=intents)
+client = discord.Client(intents=intents , command_prefix='$')
+
 
 #調用event函式庫
 @client.event
@@ -31,16 +34,19 @@ async def on_message(message):
     #如果以「說」開頭
     print(message.content)
     if message.content.startswith('!#'):
+        global manga_state_class
+        global chicken_state_class
         tmp = message.content.split(" ",2)
         channel_id = str( message.channel.id )
         if(message.content.startswith('!#ma')):
             manga_web = message.content[4:].replace(' ','').split('\n')
-            add_manga_state_target(message , manga_web)
+            await manga_state_class.add_item(channel=message.channel , web_list=manga_web)
             await message.channel.send('成功上傳漫畫網站')
         elif(message.content.startswith('!#ms')):
             content = {}
-            for web in manga_state[channel_id]['manga'].keys():
-                content[web] = manga_state[channel_id]['manga'][web]  
+            manga_dict = await manga_state_class.get_manga_dict(channel_id)
+            for web in manga_dict['manga'].keys():
+                content[web] = manga_dict['manga'][web]  
             text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S 羅列漫畫\n")
             for web in content.keys():
                 if(web =='demo_web'):
@@ -48,23 +54,11 @@ async def on_message(message):
                 i = content[web]
                 text = text + '[{}]({})\n'.format(i['title'],web) 
             await message.channel.send(text)
-def add_manga_state_target(message = dc_msg,web_list=[]):
-    channel = message.channel
-    channel_id = str( channel.id )
-    if( channel.id not in manga_state.keys() ):
-        create_manga_state(channel)
-    for web in web_list:
-        manga_state[channel_id]['manga'][web] = {}
-        solu = check_manga_state(web,'_')
-        manga_state[channel_id]['manga'][web]['title']=solu._title
-        manga_state[channel_id]['manga'][web]['dep'] = solu._words[1]
-    save_manga_state()
-    pass
-def create_manga_state(channel = dc_channel):
-    channel_id = str( channel.id )
-    manga_state[channel_id] = copy.deepcopy( manga_state['demo'] )
-    del manga_state[channel_id]['manga']['demo_web']
-    manga_state[channel_id]["label_name"] = channel.name
+        elif(message.content.startswith('!#ca')):
+            people_name = message.content[4:].replace(' ','').split('\n')
+            suc = await chicken_state_class.add_item(channel=message.channel , people_list=people_name)
+            await message.channel.send('成功上傳:' + ','.join(suc['suc']))
+            await message.channel.send('以下失敗:' + ','.join(suc['non']))
 path_log_book = './data/log_book/manga_output.md'
 def output_to_log_book(typee='mna',text='none'):
     #typee = 'mna'/'usr'
@@ -74,11 +68,6 @@ def output_to_log_book(typee='mna',text='none'):
         output.write( timing_format)
         output.write( text + '\n' )
     pass
-def save_manga_state():
-    global manga_state
-    print('saving manga_state')
-    with open('./pkg/manga_state.json','w',) as manga_state_file:
-        json.dump(manga_state, manga_state_file)
 
 
 
@@ -90,22 +79,23 @@ def _deal_with_text(update_list = [manga_updated]):
     pass
 @tasks.loop(minutes=60)
 async def threading_manga_state():
-    global manga_state
-    with  open('./pkg/manga_state.json','r',encoding="utf-8") as manga_state_file:
-        manga_state = json.load( manga_state_file )
-    output_to_log_book('ini','suc@start_update')
+    global manga_state_class
+    await manga_state_class.update_json()
 
-    for user_id in manga_state.keys():
-        if(user_id=='demo' ):
+    output_to_log_book('ini','suc@start_update')
+    manga_channel_id_dict = await manga_state_class.get_channels_dict()
+    for channel_id in manga_channel_id_dict:
+        if(channel_id=='demo' ):
             continue
-        output_to_log_book('ini','beg@{}'.format(user_id))
-        update_list =  []
         
-        for web in manga_state[user_id]['manga'].keys():
-            
+        output_to_log_book('ini','beg@{}'.format(channel_id))
+        update_list =  []
+        channel_dict = await manga_state_class.get_manga_dict(channel_id)
+
+        for web in channel_dict['manga'].keys():
             try:
                 await asyncio.sleep(randint(3,8))
-                current_value = manga_state[user_id]['manga'][web]['dep']
+                current_value = channel_dict['manga'][web]['dep']
                 manga_class= check_manga_state(web,current_value)
             except:
                 print('error occur in opening')
@@ -120,28 +110,34 @@ async def threading_manga_state():
         if(len(update_list) != 0):
             #如果有更新
             text = _deal_with_text(update_list)
-            await client.get_channel( int(user_id) ).send(text)
-            output_to_log_book('usr','suc@'+user_id)
+            await client.get_channel( int(channel_id) ).send(text)
+            output_to_log_book('usr','suc@'+channel_id)
             for updates in update_list:
                 print( updates._web + '::'+updates._words[1])
-                manga_state[user_id]['manga'][updates._web]['dep'] = updates._words[1]
-                manga_state[user_id]['manga'][updates._web]['title'] = updates._title
-            save_manga_state()
+                await manga_state_class.update_manga_info(channel_id , updates)
+            
         else:
             continue
+    await manga_state_class.save_json()
+
 
 
 @tasks.loop(minutes=60)
 async def threading_soup_sending():
-    async with  open('./pkg/chichen_state,json','r',encoding="utf-8") as chicken_state_file:
-        chicken_state = json.load( chicken_state_file )
+    global chicken_state_class
+    await chicken_state_class.update_json()
 
-    async for id in manga_state.keys()
 
 
 
 @client.event
 async def on_ready():
     print('on ready')
+    global chicken_state_class
+    global manga_state_class
+
+    chicken_state_class = chicken_state(path = 'pkg/chicken_state.json') 
+    manga_state_class = manga_state(path = 'pkg/manga_state.json') 
+    
     threading_manga_state.start()
-client.run("")
+client.run("MTE3MDIyMjExODQ1NDE4NjAzNA.G6meI7.4lyEH_pphT_tKGRBYdopxfqwqOhE8i2Ka7OdVo")
