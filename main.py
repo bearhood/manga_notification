@@ -134,4 +134,4 @@ async def threading_manga_state():
 async def on_ready():
     print('on ready')
     threading_manga_state.start()
-client.run("MTE3MDIyMjExODQ1NDE4NjAzNA.GUKAjE.Ef3KywqhZGc9JI9bYNxd_E5NgYi-wYC7o9L19M")
+client.run("MTE3MDIyMjExODQ1NDE4NjAzNA.GchV-l.3sKKXyUFjYaIDjFGgE6moxZMEoCtlNujHU2KyM")
