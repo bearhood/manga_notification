@@ -19,24 +19,7 @@ client = discord.Client(intents=intents)
 #當機器人完成啟動時
 async def on_ready():
     print('目前登入身份：',client.user)
-@client.command(name='add_manga',description='''Follow args are webs''')
-async def cmd_add_manga(ctx,arg):
-    manga_web = arg
-    add_manga_state_target(message , manga_web)
-    await message.channel.send('成功上傳漫畫網站')
 
-@client.commend(name='list_manga')
-async def cmd_list_manga(ctx,arg):
-    content = {}
-    for web in manga_state[channel_id]['manga'].keys():
-        content[web] = manga_state[channel_id]['manga'][web]  
-    text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S 羅列漫畫\n")
-    for web in content.keys():
-        if(web =='demo_web'):
-            continue
-        i = content[web]
-        text = text + '[{}]({})\n'.format(i['title'],web) 
-    await message.channel.send(text)
 @client.event
 #當有訊息時
 async def on_message(message):
@@ -47,8 +30,24 @@ async def on_message(message):
         return
     #如果以「說」開頭
     print(message.content)
-   
-    
+    if message.content.startswith('!#'):
+        tmp = message.content.split(" ",2)
+        channel_id = str( message.channel.id )
+        if(message.content.startswith('!#ma')):
+            manga_web = message.content[4:].replace(' ','').split('\n')
+            add_manga_state_target(message , manga_web)
+            await message.channel.send('成功上傳漫畫網站')
+        elif(message.content.startswith('!#ms')):
+            content = {}
+            for web in manga_state[channel_id]['manga'].keys():
+                content[web] = manga_state[channel_id]['manga'][web]  
+            text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S 羅列漫畫\n")
+            for web in content.keys():
+                if(web =='demo_web'):
+                    continue
+                i = content[web]
+                text = text + '[{}]({})\n'.format(i['title'],web) 
+            await message.channel.send(text)
 def add_manga_state_target(message = dc_msg,web_list=[]):
     channel = message.channel
     channel_id = str( channel.id )
