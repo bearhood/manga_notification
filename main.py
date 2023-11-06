@@ -4,7 +4,7 @@ from discord.ext import commands,tasks
 import discord.message as dc_msg
 import discord.channel as dc_channel
 import asyncio
-import time
+import random
 import datetime
 import json
 import copy
@@ -81,6 +81,7 @@ def save_manga_state():
         json.dump(manga_state, manga_state_file)
 
 
+
 def _deal_with_text(update_list = [manga_updated]):
     text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S 更新程式\n")
     for i in update_list:
@@ -130,8 +131,17 @@ async def threading_manga_state():
             continue
 
 
+@tasks.loop(minutes=60)
+async def threading_soup_sending():
+    async with  open('./pkg/chichen_state,json','r',encoding="utf-8") as chicken_state_file:
+        chicken_state = json.load( chicken_state_file )
+
+    async for id in manga_state.keys()
+
+
+
 @client.event
 async def on_ready():
     print('on ready')
     threading_manga_state.start()
-client.run("MTE3MDIyMjExODQ1NDE4NjAzNA.GchV-l.3sKKXyUFjYaIDjFGgE6moxZMEoCtlNujHU2KyM")
+client.run("MTE3MDIyMjExODQ1NDE4NjAzNA.G4x4OX.0CgUiD1-f41FsACdoBVrhvc-6kHSlxlE03B7qs")
