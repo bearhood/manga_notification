@@ -55,7 +55,8 @@ class manga_state(fundamental_state):
         self.update_log_path()
     async def add_item(self,channel:dc_channel, web_list:list):
         channel_id = str( channel.id )
-        if( channel_id  not in self.get_channels_dict().keys() ):
+        channel_infos=await self.get_channels_dict()
+        if( channel_id  not in channel_infos.keys() ):
             await self.add_channel( channel_id ,channel.name)
         for web in web_list:
             self._state_dict[channel_id]['manga'][web] = {}

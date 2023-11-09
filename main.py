@@ -8,6 +8,7 @@ import random
 import datetime
 import json
 import copy
+from configparser import ConfigParser
 from random import randint
 from pkg.manga_pkg import *
 from pkg.state_relate.state_model import * 
@@ -15,6 +16,8 @@ from pkg.state_relate.state_model import *
 intents = discord.Intents.all()
 intents.message_content = True
 client = discord.Client(intents=intents , command_prefix='$')
+config = ConfigParser()
+config.read("./pkg/config.ini")
 
 
 #調用event函式庫
@@ -120,7 +123,7 @@ async def threading_manga_state():
 
 
 
-@tasks.loop(minutes=60)
+@tasks.loop(hours=12)
 async def threading_soup_sending():
     global chicken_state_class
     await chicken_state_class.update_json()
@@ -137,9 +140,10 @@ async def threading_soup_sending():
         if( len(channel_dict['soup']) == 0):
             continue
         else:
+            text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S 發送雞湯\n")
             people_name = random.choice( list( channel_dict['soup'].keys() ) )
             people_speech = random.choice(  channel_dict['soup'][people_name] )
-            await client.get_channel( int(channel_id) ).send( people_name + ' : ' + people_speech)
+            await client.get_channel( int(channel_id) ).send( text + people_name + ' : ' + people_speech)
 
 
 
@@ -155,4 +159,4 @@ async def on_ready():
     
     threading_manga_state.start()
     threading_soup_sending.start()
-client.run("MTE3MDIyMjExODQ1NDE4NjAzNA.GRpDx9.83l3xsXwmdS32Wlz1Fq3lzrMbqQIxQdvwQUQcA")
+client.run(config["Discord"]['token'])
