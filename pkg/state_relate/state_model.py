@@ -15,23 +15,13 @@ class fundamental_state(ABC):
             self._state_dict = json.load(jsonfile)
         self._json_path = path
 
-    async def add_channel(self,channel:dc_channel,label_name = 'Null' ):
-        self._state_dict[str(channel.id)] = copy.deepcopy( self._state_dict['demo'] )
-        self._state_dict[str(channel.id)]['label_name'] = label_name
-    
-    @abstractmethod
-    def update_log_path(self):
-        self._path_log_book = ''
+
 
     @abstractmethod
     async def add_item(self):
         pass
-    async def get_channels_dict(self):
-        ans = {}
-        ids = self._state_dict.keys()
-        for id in ids:
-            ans[id] = self._state_dict[id]['label_name']
-        return ans # {'1223xxx':'say'}
+
+
     async def save_json(self):
         with open(self._json_path , 'w', encoding='utf-8')as jsonfile:
             self._state_dict = json.dump(self._state_dict,jsonfile)
@@ -39,59 +29,64 @@ class fundamental_state(ABC):
     async def update_json(self):
         with open(self._json_path , 'r', encoding='utf-8') as jsonfile:
             self._state_dict = json.load(jsonfile)
-    async def output_logbook(self, typee:str ,text = 'none'):
-        timing = datetime.datetime.now()  
-        timing_format = timing.strftime("%Y_%m_%d@%H_%M_%S@{}@".format(typee))
-        with open( self._path_log_book,'a+',encoding='utf-8') as output:
-            output.write( timing_format)
-            output.write( text + '\n' )
-        pass
-    async def get_channelinfo_dict(self,channel_id:str):
-        return self._state_dict[channel_id]
+    async def get_info_dict(self,channel_id:str):
+        return self._state_dict
 class manga_state(fundamental_state):
     def __init__(self, path):
         fundamental_state.__init__(self,path)
 
-        self.update_log_path()
-    async def add_item(self,channel:dc_channel, web_list:list):
-        channel_id = str( channel.id )
-        channel_infos=await self.get_channels_dict()
-        if( channel_id  not in channel_infos.keys() ):
-            await self.add_channel( channel_id ,channel.name)
-        for web in web_list:
-            self._state_dict[channel_id]['manga'][web] = {}
-            solu = check_manga_state(web,'_')
-            self._state_dict[channel_id]['manga'][web]['title']=solu._title
-            self._state_dict[channel_id]['manga'][web]['dep'] = solu._words[1]
 
+    async def add_item(self, web_list:list):
+        for web in web_list:
+            self._state_dict[web] = {}
+            solu = check_manga_state(web,'_')
+            self._state_dict[web]['title']=solu._title
+            self._state_dict[web]['dep'] = solu._words[1]
+        self._channel
     async def update_manga_info(self,channel_id:str, updated_manga:manga_updated):
-        self._state_dict[channel_id]['manga'][updated_manga._web]['dep'] = updated_manga._words[1]
-        self._state_dict[channel_id]['manga'][updated_manga._web]['title']= updated_manga._title
-    def update_log_path(self):
-        self._path_log_book = './data/log_book/manga_output.md'
+        self._state_dict[updated_manga._web]['dep'] = updated_manga._words[1]
+        self._state_dict[updated_manga._web]['title']= updated_manga._title
+class channel_state(fundamental_state):
+    def __init__(self, path):
+        fundamental_state.__init__(self,path)
+    async def add_item(self, web_list:list):
+        pass
+    def setting(self,name:str , value:str):
+        if( name in self._state_dict.keys() ):
+            self._state_dict[name] = value
+        else:
+            raise NameError
+
 class chicken_state(fundamental_state):
     def __init__(self, path):
         fundamental_state.__init__(self,path)
 
-        self.soup_path = './pkg/chicken_soup.json'
-        self.update_soup_json()
-        self.update_log_path()
+        self.chicken_path = path
     async def add_item(self,channel:dc_channel, people_list:list):
         channel_id = str( channel.id )
-        channel_infos = await self.get_channels_dict()
-        if( channel_id  not in channel_infos.keys() ):
-            await self.add_channel( channel,channel.name)
         suc = {'suc':[],'non':[] }
+        with open('pkg/chicken_soup.json', 'r', encoding='utf-8') as jsonfile:
+            _soup_dict =  json.load(jsonfile)
+        
         for people in people_list:
-            if(people not in self._soup_dict.keys() ):
+            if(people not in _soup_dict.keys() ):
                 suc['non'].append(people)
             else:
-                self._state_dict[channel_id]['soup'][people] = self._soup_dict[people]
+                self._state_dict[people] = _soup_dict[people]
                 suc['suc'].append(people)
         await self.save_json()
         return suc
-    def update_soup_json(self):
-        with open( self.soup_path , 'r', encoding='utf-8') as jsonfile:
-            self._soup_dict = json.load(jsonfile)
-    def update_log_path(self):
-        self._path_log_book = './data/log_book/chicken_output.md'
+    async def del_item(self,channel:dc_channel, people_list:list):
+        channel_id = str( channel.id )
+        suc = {'suc':[],'non':[] }
+        with open('./pkg/chicken_soup.json', 'r', encoding='utf-8') as jsonfile:
+            _soup_dict =  json.load(jsonfile)
+        for people in people_list:
+            if(people in _soup_dict.keys() ):
+                suc['suc'].append(people)
+                del self._state_dict[people]
+            else:
+                suc['non'].append(people)
+        await self.save_json()
+        return suc
+

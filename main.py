@@ -2,17 +2,16 @@
 import discord
 from discord.ext import commands,tasks
 import discord.message as dc_msg
-import discord.channel as dc_channel
 import asyncio
 import random
 import datetime
-import json
-import copy
+
 from configparser import ConfigParser
 from random import randint
 from pkg.manga_pkg import *
-from pkg.state_relate.state_model import * 
-
+from pkg.state_relate.state_model import *
+from pkg.state_relate.state_model import chicken_state 
+from pkg.central_dogma import central_dogma
 intents = discord.Intents.all()
 intents.message_content = True
 client = discord.Client(intents=intents , command_prefix='$')
@@ -36,40 +35,10 @@ async def on_message(message):
         return
     #如果以「說」開頭
     print(message.content)
+    global central_dog
+    await central_dog.exist_channel(message.channel)
     if message.content.startswith('!#'):
-        global manga_state_class
-        global chicken_state_class
-        tmp = message.content.split(" ",2)
-        channel_id = str( message.channel.id )
-        if(message.content.startswith('!#ma')):
-            manga_web = message.content[4:].replace(' ','').split('\n')
-            await manga_state_class.add_item(channel=message.channel , web_list=manga_web)
-            await message.channel.send('成功上傳漫畫網站')
-        elif(message.content.startswith('!#ms')):
-            content = {}
-            manga_dict = await manga_state_class.get_channelinfo_dict(channel_id)
-            for web in manga_dict['manga'].keys():
-                content[web] = manga_dict['manga'][web]  
-            text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S 羅列漫畫\n")
-            for web in content.keys():
-                if(web =='demo_web'):
-                    continue
-                i = content[web]
-                text = text + '[{}]({})\n'.format(i['title'],web) 
-            await message.channel.send(text)
-        elif(message.content.startswith('!#ca')):
-            people_name = message.content[4:].replace(' ','').split('\n')
-            suc = await chicken_state_class.add_item(channel=message.channel , people_list=people_name)
-            await message.channel.send('成功上傳:' + ','.join(suc['suc']))
-            await message.channel.send('以下失敗:' + ','.join(suc['non']))
-        elif(message.content.startswith('!#cs')):
-            content = {}
-            chicken_dict = await chicken_state_class.get_channelinfo_dict(channel_id)      
-            text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S 告知有誰的雞湯\n")
-
-            for people in chicken_dict['soup'].keys():
-                text = text + people +' 有 ' + str(len(chicken_dict['soup'][people])) +' 碗 雞湯 \n'
-            await message.channel.send(text)
+        await central_dog.get_message(message)
 
 
 def _deal_with_text(update_list = [manga_updated]):
@@ -78,72 +47,43 @@ def _deal_with_text(update_list = [manga_updated]):
         text = text + '[{}]({})'.format(i._title,i._web) +'\n從{}\n到{}\n'.format(i._words[0],i._words[1])
     return text
     pass
-@tasks.loop(minutes=60)
+#@tasks.loop(minutes=60)
 async def threading_manga_state():
     global manga_state_class
     await manga_state_class.update_json()
-
     await manga_state_class.output_logbook('ini','suc@start_update')
     manga_channel_id_dict = await manga_state_class.get_channels_dict()
     for channel_id in manga_channel_id_dict:
-        if(channel_id=='demo' ):
-            continue
-        
-        await manga_state_class.output_logbook('ini','beg@{}'.format(channel_id))
-        update_list =  []
-        channel_dict = await manga_state_class.get_channelinfo_dict(channel_id)
+        if(channel_id!='demo' ):
+            await manga_state_class.output_logbook('ini','beg@{}'.format(channel_id))
+            update_list =  []
+            channel_dict = await manga_state_class.get_channelinfo_dict(channel_id)
 
-        for web in channel_dict['manga'].keys():
-            try:
-                await asyncio.sleep(randint(3,8))
-                current_value = channel_dict['manga'][web]['dep']
-                manga_class= check_manga_state(web,current_value)
-            except:
-                print('error occur in opening')
-                await manga_state_class.output_logbook('mnm','err'+'@{}'.format(web))
-                continue
-            await manga_state_class.output_logbook('mnm',manga_class._state+'@{}'.format(web))
-            if( manga_class._state =='updated'):
-                update_list.append( manga_class )
-            else:
-                pass
-        print(len(update_list))
-        if(len(update_list) != 0):
-            #如果有更新
-            text = _deal_with_text(update_list)
-            await client.get_channel( int(channel_id) ).send(text)
-            await manga_state_class.output_logbook('usr','suc@'+channel_id)
-            for updates in update_list:
-                print( updates._web + '::'+updates._words[1])
-                await manga_state_class.update_manga_info(channel_id , updates)
-            
-        else:
-            continue
+            for web in channel_dict['manga'].keys():
+                try:
+                    await asyncio.sleep(randint(3,8))
+                    manga_class= check_manga_state(web,
+                                                channel_dict['manga'][web]['dep'])
+                except:
+                    print('error occur in opening')
+                    await manga_state_class.output_logbook('mnm','err'+'@{}'.format(web))
+                    continue
+                await manga_state_class.output_logbook('mnm',manga_class._state+'@{}'.format(web))
+                if( manga_class._state =='updated'):
+                    update_list.append( manga_class )
+
+            print(len(update_list))
+            if(len(update_list)):
+                #如果有更新
+                text = _deal_with_text(update_list)
+                await client.get_channel( int(channel_id) ).send(text)
+                await manga_state_class.output_logbook('usr','suc@'+channel_id)
+                for updates in update_list:
+                    print( updates._web + '::'+updates._words[1])
+                    await manga_state_class.update_manga_info(channel_id , updates)
+
     await manga_state_class.save_json()
 
-
-
-@tasks.loop(hours=12)
-async def threading_soup_sending():
-    global chicken_state_class
-    await chicken_state_class.update_json()
-    await chicken_state_class.output_logbook('ini','suc@start_update')
-
-    chicken_channel_dict = await chicken_state_class.get_channels_dict()
-    for channel_id in chicken_channel_dict.keys():
-        if(channel_id=='demo' ):
-            continue
-        
-        await chicken_state_class.output_logbook('ini','beg@{}'.format(channel_id))
-        update_list =  []
-        channel_dict = await chicken_state_class.get_channelinfo_dict(channel_id)
-        if( len(channel_dict['soup']) == 0):
-            continue
-        else:
-            text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S 發送雞湯\n")
-            people_name = random.choice( list( channel_dict['soup'].keys() ) )
-            people_speech = random.choice(  channel_dict['soup'][people_name] )
-            await client.get_channel( int(channel_id) ).send( text + people_name + ' : ' + people_speech)
 
 
 
@@ -151,12 +91,11 @@ async def threading_soup_sending():
 @client.event
 async def on_ready():
     print('on ready')
-    global chicken_state_class
-    global manga_state_class
+    global central_dog
 
-    chicken_state_class = chicken_state(path = 'pkg/chicken_state.json') 
-    manga_state_class = manga_state(path = 'pkg/manga_state.json') 
-    
-    threading_manga_state.start()
-    threading_soup_sending.start()
+    central_dog = central_dogma(client=client)
+    await central_dog.update_channel_state()
+    await central_dog.start_tasks()
+    #threading_manga_state.start()
+    #threading_soup_sending.start()
 client.run(config["Discord"]['token'])
