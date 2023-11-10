@@ -20,8 +20,6 @@ class fundamental_state(ABC):
     @abstractmethod
     async def add_item(self):
         pass
-
-
     async def save_json(self):
         with open(self._json_path , 'w', encoding='utf-8')as jsonfile:
             self._state_dict = json.dump(self._state_dict,jsonfile)
@@ -39,10 +37,10 @@ class manga_state(fundamental_state):
     async def add_item(self, web_list:list):
         for web in web_list:
             self._state_dict[web] = {}
-            solu = check_manga_state(web,'_')
+            solu = check_manga_updating_state(web,'_')
             self._state_dict[web]['title']=solu._title
             self._state_dict[web]['dep'] = solu._words[1]
-        self._channel
+            await self.save_json()
     async def update_manga_info(self,channel_id:str, updated_manga:manga_updated):
         self._state_dict[updated_manga._web]['dep'] = updated_manga._words[1]
         self._state_dict[updated_manga._web]['title']= updated_manga._title
@@ -63,7 +61,6 @@ class chicken_state(fundamental_state):
 
         self.chicken_path = path
     async def add_item(self,channel:dc_channel, people_list:list):
-        channel_id = str( channel.id )
         suc = {'suc':[],'non':[] }
         with open('pkg/chicken_soup.json', 'r', encoding='utf-8') as jsonfile:
             _soup_dict =  json.load(jsonfile)

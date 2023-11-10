@@ -6,7 +6,7 @@ import urllib.request
 from bs4 import BeautifulSoup
 
 url_headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36'}
-class manga_state(ABC):
+class manga_updating_state(ABC):
     def __init__(self,web,title,previous_state = "Null",
                           current_state = 'None'):
 
@@ -19,7 +19,7 @@ class manga_state(ABC):
         return self._words
     def title(self):
         return self._title
-class manga_failed(manga_state):
+class manga_failed(manga_updating_state):
     def __init__(self,web,title,
                           previous_state = "Null",
                           current_state = 'None'):
@@ -28,7 +28,7 @@ class manga_failed(manga_state):
         self._words = [previous_state , current_state]
         self._title = 'Null'
     pass
-class manga_updated(manga_state):
+class manga_updated(manga_updating_state):
     def __init__(self,web,title,
                           previous_state = "Null",
                           current_state = 'None'):
@@ -37,7 +37,7 @@ class manga_updated(manga_state):
         self._words = [previous_state , current_state]
         self._title = title
     pass
-class manga_nonupdated(manga_state):
+class manga_nonupdated(manga_updating_state):
     def __init__(self,web,title,
                           previous_state = "Null",
                           current_state = 'Null'):
@@ -46,7 +46,7 @@ class manga_nonupdated(manga_state):
         self._words = [previous_state , current_state]
         self._title = title
     pass
-class manga_unable(manga_state):
+class manga_unable(manga_updating_state):
     def __init__(self,web,title,
                           previous_state = "Null",
                           current_state = 'Null'):
@@ -130,7 +130,7 @@ class web_scracher_www_manhuaren_com(web_scracher):
         for link in self._soup.findAll( name= 'title'):
             title = link.text
         self._title = title
-def check_manga_state( web,preval ):
+def check_manga_updating_state( web,preval ):
 
     net_dict = {'tw.manhuagui.com':web_scracher_tw_manhuagui_com,
                 'm.manhuagui.com':web_scracher_m_manhuagui_com,
