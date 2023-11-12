@@ -34,6 +34,13 @@ class channel_property():
         await self._channel_state_class.save_json()
     def change_loop_itv(self,func,minutes):
         func.change_interval( minutes=minutes )
+    def dec_check_mute(func):
+        async def wrap(self):
+            if( self._channel_state_class.is_mute() ):
+                print( 'mute')
+            else:
+                func()
+        return wrap
 
     async def save_manga(self):
         await self._manga_state_class.save_json()
@@ -117,7 +124,9 @@ class channel_property():
         for prefix in command_dict.keys():
             text = text + command_dict[prefix]['comment'] +'\n'
         await self._channel.send(text)
+
     @tasks.loop(minutes=12*60)
+    @dec_check_mute
     async def thread_chicken(self):
         await self._chicken_state_class.update_json()
             

@@ -20,6 +20,7 @@ class fundamental_state(ABC):
     @abstractmethod
     async def add_item(self):
         pass
+
     async def save_json(self):
         with open(self._json_path , 'w', encoding='utf-8')as jsonfile:
             self._state_dict = json.dump(self._state_dict,jsonfile)
@@ -33,7 +34,6 @@ class manga_state(fundamental_state):
     def __init__(self, path):
         fundamental_state.__init__(self,path)
 
-
     async def add_item(self, web_list:list):
         for web in web_list:
             self._state_dict[web] = {}
@@ -44,6 +44,7 @@ class manga_state(fundamental_state):
     async def update_manga_info(self,channel_id:str, updated_manga:manga_updated):
         self._state_dict[updated_manga._web]['dep'] = updated_manga._words[1]
         self._state_dict[updated_manga._web]['title']= updated_manga._title
+
 class channel_state(fundamental_state):
     def __init__(self, path):
         fundamental_state.__init__(self,path)
@@ -54,7 +55,8 @@ class channel_state(fundamental_state):
             self._state_dict[name] = value
         else:
             raise NameError
-
+    def is_mute(self):
+        return self._state_dict['mute']
 class chicken_state(fundamental_state):
     def __init__(self, path):
         fundamental_state.__init__(self,path)
