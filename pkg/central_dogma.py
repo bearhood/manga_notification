@@ -10,7 +10,7 @@ from random import randint
 import os
 import shutil
 import asyncio
-from pkg.manga_pkg import *
+from pkg.thread_content.manga_pkg import *
 import threading
 class channel_property():
     def __init__(self,channel:dc_channel):
@@ -25,29 +25,23 @@ class channel_property():
         self._chicken_state_class = chicken_state(self._dataroot+'/chicken_state.json')
         self._channel_state_class = channel_state(self._dataroot+'/channel_state.json')
 
-        chi_itv = float(self._channel_state_class._state_dict["chicken_interval"])
-        self.thread_chicken.change_interval(
-                            minutes=chi_itv)
+        
         
     async def set_channel_label(self):
-        self._channel_state_class.setting('label',self._channel.name)
+        await self._channel_state_class.setting('label',self._channel.name)
         await self._channel_state_class.save_json()
     def change_loop_itv(self,func,minutes):
         func.change_interval( minutes=minutes )
-    def dec_check_mute(func):
-        async def wrap(self):
-            if( self._channel_state_class.is_mute() ):
-                print( 'mute')
-            else:
-                func()
-        return wrap
+
+    
 
     async def save_manga(self):
         await self._manga_state_class.save_json()
     async def save_chicken(self):
         await self._chicken_state_class.save_json()
-    async def send_manga_updated(self, update_list:list):
-        def deal_with_text(list_:list):
+
+    async def send_manga_updated(self, update_list:list[manga_updated]):
+        def deal_with_text(list_:list[manga_updated]) -> str:
                 text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S 更新程式\n")
                 for i in list_:
                     text = text + '[{}]({})'.format(i._title,i._web) +'\n從{}\n到{}\n'.format(i._words[0],i._words[1])
@@ -72,10 +66,10 @@ class channel_property():
             print( message.content.removeprefix(prefix) )
             return 
         self.thread_chicken.change_interval(minutes=minute)
-        self._channel_state_class.setting('chicken_interval',minute)
+        await self._channel_state_class.setting('chicken_interval',minute)
         await self._channel_state_class.save_json()
         await self._channel.send('修改雞湯間距成功')
-    async def cmd_report_chicken_soup_state(self,message,prefix = '!#cs'):
+    async def cmd_report_chicken_soup_state(self,message:dc_msg,prefix = '!#cs'):
         content = {}
         chicken_dict = self._chicken_state_class._state_dict
         text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S 告知有誰的雞湯\n")
@@ -89,7 +83,15 @@ class channel_property():
         for people in soup_dict:
             text = text + people +' 有 ' + str(len(soup_dict[people])) +' 碗 雞湯 \n'
         await message.channel.send(text)
-    async def cmd_report_manga_state(self,message,prefix='!#ms'):
+    async def cmd_report_manga_state(self,message:dc_msg,prefix='!#ms'):
+        def shorten_title(text:str):
+            fail_text = '[]()'
+            for j in fail_text:
+                text = text.replace(j,'')
+            if( len(text  )>7 ):
+                return text[0:7]+'...'
+            else:
+                return text
         content = {}
         manga_dict = await self.get_manga_dict()
         for web in manga_dict.keys():
@@ -99,9 +101,9 @@ class channel_property():
             if(web =='demo_web'):
                 continue
             i = content[web]
-            text = text + '[{}]({})\n'.format(i['title'],web) 
+            text = text + '[{}]({})\n'.format( shorten_title(i['title']) ,web) 
         await message.channel.send(text)
-    async def cmd_del_chicken_item(self,message,prefix = '!#cd'):
+    async def cmd_del_chicken_item(self,message:dc_msg,prefix = '!#cd'):
         people_name = message.content.removeprefix(prefix).replace(' ','').split('\n')
         suc = await self._chicken_state_class.del_item(channel=message.channel , people_list=people_name)
         await message.channel.send('成功刪除:' + ','.join(suc['suc']))
@@ -119,17 +121,38 @@ class channel_property():
         await self._manga_state_class.add_item(web_list= manga_web)
         await message.channel.send('成功上傳漫畫網站')
         await self.save_manga()
-    async def cmd_report_help(self,message,command_dict:dict):
+    async def cmd_report_help(self,message:dc_msg,command_dict:dict):
         text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S help說明\n")
         for prefix in command_dict.keys():
             text = text + command_dict[prefix]['comment'] +'\n'
         await self._channel.send(text)
+    async def cmd_mute_channel(self,message:dc_msg,prefix='!#mute'):
+        await self._channel_state_class.setting('mute',value = 1)
+        await self._channel.send('本頻道已安靜')
+    async def cmd_unmute_channel(self,message:dc_msg,prefix='!#unmute'):
+        await self._channel_state_class.setting('mute',value = 0)
+        await self._channel.send('本頻道恢復吵鬧')
+    
+    
+    def dec_check_mute(func):
+        async def wrap(self):
+            if( self._channel_state_class.value_query('mute') ):
+                print( 'mute')
+                return await asyncio.sleep(0.01)
+            else:
+                return await func(self)
+        return wrap
+    async def thread_soup_counter(self):
+        
+        minutes= self._channel_state_class.value_query('chicken_interval')
+        await asyncio.sleep( minutes * 60)
 
-    @tasks.loop(minutes=12*60)
+    @tasks.loop(seconds=0.01)
     @dec_check_mute
     async def thread_chicken(self):
+        print('thread id:', threading.get_ident())
         await self._chicken_state_class.update_json()
-            
+        
         state_dict = self._chicken_state_class._state_dict
         if( len(state_dict) == 0):
             pass
@@ -138,7 +161,8 @@ class channel_property():
             people_name = random.choice( list( state_dict.keys() ) )
             people_speech = random.choice(  state_dict[people_name] )
             await self._channel.send( text + people_name + ' : ' + people_speech)
-
+        await self.thread_soup_counter()
+    
 class central_dogma():
     def __init__(self,client:Client):
         #load all settings for users
@@ -189,6 +213,11 @@ class central_dogma():
                 'func':self._channel_func[channel_id].cmd_report_chicken_soup_state},
         '!#ccitv':{'comment':'''>>!#ccitv數字 : 修改放送雞湯的時間週期，數字代表接下來的週期(單位:分鐘)''',
                 'func':self._channel_func[channel_id].cmd_change_chicken_itv },
+        '!#mute':{'comment':'''>>!#mute : 接下來的時光將會無視漫畫及雞湯提醒(忽略提醒並非不會更新)''',
+                'func':self._channel_func[channel_id].cmd_mute_channel },
+        '!#unmute':{'comment':'''>>!#unmute: 恢復提醒功能''',
+                'func':self._channel_func[channel_id].cmd_unmute_channel },
+        
         }
         if(message.content.startswith('!#help')):   
             await self._channel_func[channel_id].cmd_report_help(message,command_dict=command_dict)
@@ -206,9 +235,9 @@ class central_dogma():
 
 
 
-    @tasks.loop(minutes=60)
+    @tasks.loop(seconds=60)
     async def thread_manga(self):
-        print('thread id:', threading.get_ident())
+
         await self.collect_all_manga_state()
         for channel_id in self._manga_class_dict:
             if(channel_id!='demo' ):

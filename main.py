@@ -1,7 +1,7 @@
 #導入Discord.py
 import discord
 from configparser import ConfigParser
-from pkg.manga_pkg import *
+from pkg.thread_content.manga_pkg import *
 from pkg.state_relate.state_model import *
 from pkg.central_dogma import central_dogma
 

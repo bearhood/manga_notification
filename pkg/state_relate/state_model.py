@@ -4,7 +4,7 @@ import aiofiles
 import json
 import copy
 import discord.channel as dc_channel
-from pkg.manga_pkg import *
+from pkg.thread_content.manga_pkg import *
 import datetime
 '''
 定義一個聊天室為一個channel
@@ -50,13 +50,16 @@ class channel_state(fundamental_state):
         fundamental_state.__init__(self,path)
     async def add_item(self, web_list:list):
         pass
-    def setting(self,name:str , value:str):
+    async def setting(self,name:str , value:str):
         if( name in self._state_dict.keys() ):
             self._state_dict[name] = value
+            await self.save_json()
+
         else:
             raise NameError
-    def is_mute(self):
-        return self._state_dict['mute']
+    def value_query(self,key):
+        return self._state_dict[key]
+
 class chicken_state(fundamental_state):
     def __init__(self, path):
         fundamental_state.__init__(self,path)
