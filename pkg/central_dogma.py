@@ -1,4 +1,5 @@
 import discord.message as dc_msg
+import discord
 from discord.ext import commands,tasks
 from discord import Client
 import discord.channel as dc_channel
@@ -12,6 +13,13 @@ import shutil
 import asyncio
 from pkg.manga_pkg import *
 import threading
+import shutil
+
+import ssl
+ssl._create_default_https_context = ssl._create_stdlib_context
+from pathvalidate import sanitize_filepath
+from pytube import YouTube
+from pkg.yt_relate.yt_demoer import *
 class channel_property():
     def __init__(self,channel:dc_channel):
         self._channel = channel
@@ -41,12 +49,24 @@ class channel_property():
         await self._chicken_state_class.save_json()
     async def send_manga_updated(self, update_list:list):
         def deal_with_text(list_:list):
-                text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S 更新程式\n")
-                for i in list_:
+            text_list = []
+            text_list.append( datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S 更新程式") )
+
+            text = ''
+            for i in list_:
+                try:
                     text = text + '[{}]({})'.format(i._title,i._web) +'\n從{}\n到{}\n'.format(i._words[0],i._words[1])
-                return text
-        text = deal_with_text(update_list)
-        await self._channel.send(text)
+                except:
+                    text = text + '[{}]'.format(i._title) +'\n從{}\n到{}\n'.format(i._words[0],i._words[1])
+                    continue
+                if( len(text  )>1500 ):
+                    text_list.append( text )
+                    text = ''
+            text_list.append(text)
+            return text_list
+        text_list = deal_with_text(update_list)
+        for text in text_list:
+            await self._channel.send(text)
         for updates in update_list:
             print( updates._web + '::'+updates._words[1])
             await self._manga_state_class.update_manga_info(self._channel_id , updates)
@@ -112,6 +132,39 @@ class channel_property():
         await self._manga_state_class.add_item(web_list= manga_web)
         await message.channel.send('成功上傳漫畫網站')
         await self.save_manga()
+    async def cmd_add_manga_item(self,message,prefix = '!#ma'):
+        manga_web = message.content.removeprefix(prefix).replace(' ','').split('\n')
+        await self._manga_state_class.add_item(web_list= manga_web)
+        await message.channel.send('成功上傳漫畫網站')
+        await self.save_manga()
+    async def cmd_send_youtube(self, message , prefix = '!#yt'):
+        yt_web = message.content.removeprefix(prefix).replace(' ','').split('\n')[0]
+        print(yt_web)
+        yt = YouTube(yt_web)
+        filename = sanitize_filepath(f'{yt.title}.mp4')
+
+        await message.channel.send('測試下載回傳中...')
+        os.makedirs('{}/data/video'.format(self._dataroot), exist_ok=True)
+        os.makedirs('{}/data/img'.format(self._dataroot), exist_ok=True)
+        print('download...')
+        vdo_output_path = f'{self._dataroot}/data/video/{filename}'
+        yt.streams.filter( res = '480p').first().download( filename= vdo_output_path )
+        print('fine')
+        suc = youtube_demoer(vdo_output_path , '{}/data/img'.format(self._dataroot) )
+        if(suc!=None):
+            files_to_send: list[discord.File] = []
+            for i,path in enumerate( suc ):
+                if( i % 9 == 0 and i != 0 ):
+                    await message.channel.send(files=files_to_send)
+                    files_to_send: list[discord.File] = []
+                with open(path,'rb') as f:
+                    files_to_send.append(discord.File(f) )
+            await message.channel.send(files=files_to_send)
+        else:
+            await message.channel.send('失敗')
+
+
+        pass
     async def cmd_report_help(self,message,command_dict:dict):
         text = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S help說明\n")
         for prefix in command_dict.keys():
@@ -143,11 +196,14 @@ class central_dogma():
             if(dir_=='demo'):
                 continue
             elif(os.path.isdir('./data/'+ dir_) ):
+                if( self._client.get_channel( int(dir_) )==None ):
+                    shutil.rmtree('./data/'+ dir_)
+                    continue
                 self._channel_ids.append( dir_ )
         for channel_id in self._channel_ids:
             self._channel_func[channel_id] = channel_property(
                                 self._client.get_channel( int(channel_id) ))  
-        
+
     async def exist_channel(self,channel:dc_channel ):
         #要重新建立新的資料夾，建立新的channel_property
         channel_id = str(channel.id)
@@ -180,6 +236,8 @@ class central_dogma():
                 'func':self._channel_func[channel_id].cmd_report_chicken_soup_state},
         '!#ccitv':{'comment':'''>>!#ccitv數字 : 修改放送雞湯的時間週期，數字代表接下來的週期(單位:分鐘)''',
                 'func':self._channel_func[channel_id].cmd_change_chicken_itv },
+        '!#yt':{'comment':'''>>!#ythttps... : 傳送影片縮圖''',
+                'func':self._channel_func[channel_id].cmd_send_youtube },
         }
         if(message.content.startswith('!#help')):   
             await self._channel_func[channel_id].cmd_report_help(message,command_dict=command_dict)
@@ -207,11 +265,14 @@ class central_dogma():
                 channel_dict = self._manga_class_dict[channel_id]
                 for web in channel_dict.keys():
                     try:
+                        print(web)
                         await asyncio.sleep(randint(3,8))
                         manga_class= check_manga_updating_state(web,channel_dict[web]['dep'])
                         if( manga_class._state =='updated'):
+                            print('updated')
                             update_list.append( manga_class )
                         else:
+                            print('no update')
                             continue
                     except:
                         continue
