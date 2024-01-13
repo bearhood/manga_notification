@@ -19,6 +19,7 @@ import ssl
 ssl._create_default_https_context = ssl._create_stdlib_context
 from pathvalidate import sanitize_filepath
 from pytube import YouTube
+import pytube
 from pkg.yt_relate.yt_demoer import *
 class channel_property():
     def __init__(self,channel:dc_channel):
@@ -148,7 +149,12 @@ class channel_property():
         os.makedirs('{}/data/img'.format(self._dataroot), exist_ok=True)
         print('download...')
         vdo_output_path = f'{self._dataroot}/data/video/{filename}'
-        yt.streams.filter( res = '480p').first().download( filename= vdo_output_path )
+        try:
+            yt.streams.filter( res = '480p',only_video=True).first().download( filename= vdo_output_path )
+        except Exception as e:
+            await message.channel.send('有問題喔~ 以下錯誤:')
+            await message.channel.send(e)
+            return
         print('fine')
         suc = youtube_demoer(vdo_output_path , '{}/data/img'.format(self._dataroot) )
         if(suc!=None):
