@@ -161,3 +161,4 @@ cython_debug/
 pkg/config.ini
 pkg/config.ini
 data
+pkg/config.ini

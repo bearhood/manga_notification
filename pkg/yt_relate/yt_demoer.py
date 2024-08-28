@@ -16,7 +16,6 @@ output_O_startoff = 200
 
 # S for single
 output_S_f2f_itv_sec = 4 #sec
-
 output_S_heightnum = 3
 output_S_widthnum = 4
 

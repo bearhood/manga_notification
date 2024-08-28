@@ -20,7 +20,7 @@ ssl._create_default_https_context = ssl._create_stdlib_context
 from pathvalidate import sanitize_filepath
 from pytube import YouTube
 import pytube
-from pkg.yt_relate.yt_demoer import *
+#from pkg.yt_relate.yt_demoer import *
 class channel_property():
     def __init__(self,channel:dc_channel):
         self._channel = channel
@@ -139,6 +139,8 @@ class channel_property():
         await message.channel.send('成功上傳漫畫網站')
         await self.save_manga()
     async def cmd_send_youtube(self, message , prefix = '!#yt'):
+        await message.channel.send('暫時無法使用')
+        return
         yt_web = message.content.removeprefix(prefix).replace(' ','').split('\n')[0]
         print(yt_web)
         yt = YouTube(yt_web)
