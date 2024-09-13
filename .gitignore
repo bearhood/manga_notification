@@ -159,6 +159,5 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 pkg/config.ini
-pkg/config.ini
-data
+data/ai/cm_hist
 pkg/config.ini
